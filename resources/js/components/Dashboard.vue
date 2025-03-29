@@ -39,8 +39,12 @@
                 </div>
             </div>
 
-            <ul class="space-y-4">
-                <li v-for="task in filteredTasks" :key="task.id"
+            <div v-if="taskStore.loading" class="flex justify-center items-center py-6">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+            </div>
+
+            <ul v-else class="space-y-4">
+                <li v-for="task in taskStore.tasks" :key="task.id"
                     class="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
                     <div class="flex justify-between items-center">
                         <div>
@@ -67,7 +71,7 @@
                         </div>
                     </div>
                 </li>
-                <li v-if="filteredTasks.length === 0" class="text-center text-gray-500 py-4">
+                <li v-if="taskStore.tasks.length === 0" class="text-center text-gray-500 py-4">
                     وظیفه‌ای برای نمایش وجود ندارد.
                 </li>
             </ul>
@@ -92,7 +96,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useTaskStore } from '@/stores/tasks';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
@@ -107,23 +111,12 @@ const taskToEdit = ref(null);
 const statusFilter = ref('all');
 const sortOrder = ref('newest')
 
-onMounted(async () => await taskStore.fetchTasks(1));
+onMounted(async () => {
+    await taskStore.fetchTasks(1, { status: statusFilter.value, sortOrder: sortOrder.value });
+});
 
-// const computedTasks = computed(() => taskStore.tasks);
-const filteredTasks = computed(() => {
-    let tasks = [...taskStore.tasks];
-
-    if (statusFilter.value !== 'all') {
-        tasks = tasks.filter(task => task.status === statusFilter.value);
-    }
-
-    tasks.sort((a, b) => {
-        const dateA = DateTime.fromISO(a.start_date);
-        const dateB = DateTime.fromISO(b.start_date);
-        return sortOrder.value === 'newest' ? dateB - dateA : dateA - dateB;
-    });
-
-    return tasks;
+watch([statusFilter, sortOrder], async () => {
+    await taskStore.fetchTasks(1, { status: statusFilter.value, sortOrder: sortOrder.value });
 });
 
 const openCreateModal = () => {
@@ -148,13 +141,13 @@ const saveTask = async (task) => {
         await taskStore.addTask(task);
     }
     closeModal();
-    taskStore.fetchTasks(1);
+    await taskStore.fetchTasks(1, { status: statusFilter.value, sortOrder: sortOrder.value });
 };
 
 const confirmDelete = async (id) => {
     if (confirm('آیا مطمئن هستید که می‌خواهید این وظیفه را حذف کنید؟')) {
         await taskStore.removeTask(id);
-        taskStore.fetchTasks(1);
+        await taskStore.fetchTasks(1, { status: statusFilter.value, sortOrder: sortOrder.value });
     }
 };
 
@@ -174,7 +167,7 @@ const formatDate = (isoDate) => {
         .toFormat('yyyy/MM/dd');
 };
 
-const fetchPage = (page) => {
-    taskStore.fetchTasks(page);
+const fetchPage = async (page) => {
+    await taskStore.fetchTasks(page, { status: statusFilter.value, sortOrder: sortOrder.value });
 };
 </script>

@@ -5,10 +5,18 @@ import { getTasks, createTask, updateTask, deleteTask } from '@/api';
 export const useTaskStore = defineStore('tasks', () => {
 	const tasks = ref([]);
 	const meta = ref({});
+	const loading = ref(false);
 
-	const fetchTasks = async (page = 1) => {
+	const fetchTasks = async (page = 1, filters = {}) => {
+		loading.value = true;
 		try {
-			const response = await getTasks(page);
+			const params = {
+				page,
+				perpage: 10,
+				...(filters.status && filters.status !== 'all' ? { status: filters.status } : {}),
+				...(filters.sortOrder ? { sort: 'start_date', direction: filters.sortOrder === 'newest' ? 'desc' : 'asc' } : {}),
+			};
+			const response = await getTasks(params);
 			tasks.value = response.data.data || [];
 			meta.value = {
 				current_page: response.data.meta.current_page,
@@ -19,6 +27,8 @@ export const useTaskStore = defineStore('tasks', () => {
 		} catch (error) {
 			console.log(error);
 			tasks.value = [];
+		} finally {
+			loading.value = false;
 		}
 	};
 
@@ -38,5 +48,5 @@ export const useTaskStore = defineStore('tasks', () => {
 		tasks.value = tasks.value.filter((t) => t.id !== id);
 	};
 
-	return { tasks, meta, fetchTasks, addTask, editTask, removeTask };
+	return { tasks, meta, loading, fetchTasks, addTask, editTask, removeTask };
 });
